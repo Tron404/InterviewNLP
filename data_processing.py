@@ -10,19 +10,29 @@ from xml.etree import ElementTree as ET
 lemmatizer = spacy.load("en_core_web_sm")
 stopwords = stopwords.words("english")
 
+# minimal preprocessing for transformers
+def data_preprocessing_transformer(data: str) -> list:
+    data = data.lower()
+    data = re.sub(r"\s+", " ", data)
+    data = data.strip()
+    return data.split(" ")
+
 # main processing: keep compound nouns, lemmatize, stop word removal, remove numbers
 def data_preprocessing(data: str) -> list:
     data = data.lower()
-    # @TODO try without compound nouns
     # !"#$%&'()*+,-./:;<=>?@[\]^_`{|}~ from string.punctuation
     # keep compund nouns
     data = regexp_tokenize(data, r"[\w]+(?:[!\"#$%&'()*+,-./:;<=>?@[\]^_`{|}~][\w]+[()*[\]{}]?){1,}|[\w]+|(?:[([{]\w+[)\]}])+")
 
-    ### @TODO: 
-    # * lemmatize
+    # lemmatize
     aux_data = data
     data = " ".join(data)
     lemmatized_data = lemmatizer(data)
+
+    data = [token.lemma_ for token in lemmatized_data]
+
+    # remove all punctuation
+    data = [word for word in data if len(word) > 1]
 
     aux = []
     for aux_token in aux_data:
@@ -40,15 +50,12 @@ def data_preprocessing(data: str) -> list:
 
     data = aux
 
-    # stop word removal
-    data = [word for word in data if word not in stopwords]
-
-    #### remove numbers
-    # data = [word for word in data if not re.search(r"[0-9]+", word)]
+    # remove stop words, any remaining punctuation, and tokens containing digits
+    data = [word for word in data if word not in stopwords and word not in string.punctuation and not re.search(r"[0-9]+", word)]
 
     return data
 
-def get_text_from_xml(xml_file: str) -> pd.DataFrame:    
+def get_text_from_xml(xml_file: str, preprocessing_func: callable) -> pd.DataFrame:    
     parsed_dir = ET.parse(xml_file)
     parsed_dir = parsed_dir.getroot()
 
@@ -61,7 +68,7 @@ def get_text_from_xml(xml_file: str) -> pd.DataFrame:
         data["Text"].append(child_node.text)
 
     data = pd.DataFrame(data)
-    data["Text"] = data["Text"].apply(data_preprocessing)
+    data["Text"] = data["Text"].apply(preprocessing_func)
 
     return data
 

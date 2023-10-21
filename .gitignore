@@ -3,3 +3,5 @@ _*
 *.pdf
 Data/
 *.zip
+Processed/
+*.pickle
