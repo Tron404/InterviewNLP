@@ -10,8 +10,14 @@ from xml.etree import ElementTree as ET
 lemmatizer = spacy.load("en_core_web_sm")
 stopwords = stopwords.words("english")
 
-# minimal preprocessing for transformers
 def data_preprocessing_transformer(data: str) -> list:
+    """
+    Minimal preprocessing for transformers. This includes:
+    * lowercasing
+    * replacement of all whitespace characters with " "
+    * and removing any surplus " " characters
+    * tokenization based on single " "
+    """
     data = data.lower()
     data = re.sub(r"\s+", " ", data)
     data = data.strip()
@@ -19,6 +25,13 @@ def data_preprocessing_transformer(data: str) -> list:
 
 # main processing: keep compound nouns, lemmatize, stop word removal, remove numbers
 def data_preprocessing(data: str) -> list:
+    """
+    Main preprocessing pipeline. Tokenize a given sentence such that:
+    * all tokens are lower-cased
+    * compound nouns are kept (e.g. hand-arm)
+    * the tokens are lemmatized
+    * any stop words, isolated punctuation, and tokens with numeric characters are removed
+    """
     data = data.lower()
     # !"#$%&'()*+,-./:;<=>?@[\]^_`{|}~ from string.punctuation
     # keep compund nouns
@@ -28,12 +41,13 @@ def data_preprocessing(data: str) -> list:
     aux_data = data
     data = " ".join(data)
     lemmatized_data = lemmatizer(data)
-
     data = [token.lemma_ for token in lemmatized_data]
 
     # remove all punctuation
     data = [word for word in data if len(word) > 1]
-
+    
+    # some of the compound-nouns are separated by the lemmatizer, as such it is necessary to readd those tokens 
+    # back as they were, but still in their lemmatized forms
     aux = []
     for aux_token in aux_data:
         found = False
@@ -41,13 +55,10 @@ def data_preprocessing(data: str) -> list:
             if token.text == aux_token:
                 aux.append(token.lemma_)
                 found = True
-
             if found:
                 break
-
         if not found:
             aux.append(aux_token)
-
     data = aux
 
     # remove stop words, any remaining punctuation, and tokens containing digits
@@ -56,6 +67,11 @@ def data_preprocessing(data: str) -> list:
     return data
 
 def get_text_from_xml(xml_file: str, preprocessing_func: callable) -> pd.DataFrame:    
+    """
+    Obtain two datasets of articles from a given XML file path, one for the sentence transformer model
+    and the second for all other models
+    """
+    
     parsed_dir = ET.parse(xml_file)
     parsed_dir = parsed_dir.getroot()
 
